@@ -2,13 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTEST_ADDOPTS": "--no-cov"
+            }
+        },
+        {
             "name": "Python: Debug Tests",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "purpose": ["debug-test"],
+            "purpose": [
+                "debug-test"
+            ],
             "console": "integratedTerminal",
-            "env": {"PYTEST_ADDOPTS": "--no-cov"}, 
+            "env": {
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
             "justMyCode": true
         },
         {
@@ -17,7 +32,9 @@
             "request": "launch",
             "module": "pytest",
             "console": "integratedTerminal",
-            "env": {"PYTEST_ADDOPTS": "--no-cov"}, 
+            "env": {
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
             "justMyCode": true,
             "args": [
                 "${file}"
