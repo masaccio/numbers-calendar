@@ -19,7 +19,8 @@ numbers-calendar = "numbers_calendar._numbers_calendar:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-numbers-parser = "^4.2.0"
+numbers-parser = {git = "https://github.com/masaccio/numbers-parser.git"}
+holidays = "^0.29"
 
 [tool.poetry.group.dev.dependencies]
 black = {version = "^22.10.0", allow-prereleases = true}

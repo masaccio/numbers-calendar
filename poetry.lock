@@ -182,6 +182,21 @@ files = [
 ]
 
 [[package]]
+name = "holidays"
+version = "0.29"
+description = "Generate and work with holidays in Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "holidays-0.29-py3-none-any.whl", hash = "sha256:0965f763172b7bf4931e6378b93bae77a2c8bd112ce4c6b483b832a80498ab39"},
+    {file = "holidays-0.29.tar.gz", hash = "sha256:e8219df1570dd92f17244ff7da93f57630b0dd2fedf86e86b4110f07825b0a67"},
+]
+
+[package.dependencies]
+python-dateutil = "*"
+
+[[package]]
 name = "importlib-metadata"
 version = "6.8.0"
 description = "Read metadata from Python packages"
@@ -243,19 +258,23 @@ version = "4.2.0"
 description = "Read and write Apple Numbers spreadsheets"
 category = "main"
 optional = false
-python-versions = ">=3.8,<4.0"
-files = [
-    {file = "numbers_parser-4.2.0-py3-none-any.whl", hash = "sha256:e59d441909cca8a22fab79bae004f09571e4b89b68edeab9c88e1170a317d12c"},
-    {file = "numbers_parser-4.2.0.tar.gz", hash = "sha256:a28f87d70ac1f4eb521dde377eca44e24e61232d584b1c0efb7b2da9814f8e54"},
-]
+python-versions = "^3.8"
+files = []
+develop = false
 
 [package.dependencies]
-compact-json = ">=1.1.3,<2.0.0"
-pendulum = ">=2.1.2,<3.0.0"
-protobuf = ">=4.21.1,<5.0.0"
-python-snappy = ">=0.6.1,<0.7.0"
-regex = ">=2022.9.13,<2023.0.0"
-roman = ">=3.3,<4.0"
+compact-json = "^1.1.3"
+pendulum = "^2.1.2"
+protobuf = "^4.21.1"
+python-snappy = "^0.6.1"
+regex = "^2022.9.13"
+roman = "^3.3"
+
+[package.source]
+type = "git"
+url = "https://github.com/masaccio/numbers-parser.git"
+reference = "HEAD"
+resolved_reference = "90c1c4597a62b3185f339b97eb8d89d4cfef139f"
 
 [[package]]
 name = "packaging"
@@ -793,4 +812,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "7c6747170394c42ddc82a79cbbb6354e353ed27e93556b927ecfc76116d8854a"
+content-hash = "91b1a067ff23550d9988bbfeabc199098a72a3180b04709297062797d2eeba9e"
