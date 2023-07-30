@@ -8,7 +8,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--start-month", "April", "2023"],
+            "args": ["--start-month=April", "--weekend=Sat", "--weekend=Sun", "2023"],
             "env": {
                 "PYTEST_ADDOPTS": "--no-cov"
             }
