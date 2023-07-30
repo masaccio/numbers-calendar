@@ -1,10 +1,11 @@
 import argparse
 import calendar
+import pycountry
 from datetime import date
 from locale import getlocale
 
 from dateutil.relativedelta import relativedelta
-from holidays import country_holidays
+from holidays import country_holidays, list_supported_countries
 from numbers_parser import RGB, Border, Document, Alignment
 from os.path import basename
 from sys import argv, exit, stderr
@@ -35,6 +36,9 @@ WEEKDAY_MAP = generate_weekday_map()
 ALL_BORDERS = ["top", "right", "bottom", "left"]
 SOLID_BORDER = Border(1.0, RGB(0, 0, 0), "solid")
 NO_BORDER = Border(0.0, RGB(0, 0, 0), "none")
+COUNTRY_TO_ALPHA2 = {}
+ALPHA2_TO_COUNTRY = {}
+ALPHA2_REGIONS = {}
 
 
 def valid_month(month):
@@ -66,11 +70,28 @@ def valid_year(year):
     return int(year)
 
 
+def generate_country_lookups():
+    for alpha2, subdivs in list_supported_countries().items():
+        country_data = pycountry.countries.get(alpha_2=alpha2)
+        if country_data is not None:
+            ALPHA2_TO_COUNTRY[alpha2] = country_data.name
+            COUNTRY_TO_ALPHA2[country_data.name] = alpha2
+            ALPHA2_REGIONS[alpha2] = subdivs
+
+
 def command_line_parser():
     parser = argparse.ArgumentParser(
         description="Create Apple Numbers spreadsheet calendars using python"
     )
     parser.add_argument("-V", "--version", action="store_true")
+    parser.add_argument(
+        "--list-countries", action="store_true", help="List available country code and exit"
+    )
+    parser.add_argument(
+        "--list-regions",
+        action="store_true",
+        help="List available regions in the selected country and exit",
+    )
     parser.add_argument(
         "--no-holiday-weekends",
         action="store_true",
@@ -112,7 +133,7 @@ def command_line_parser():
         type=str,
         help="State, province or other subdivision within a country",
     )
-    parser.add_argument("year", nargs="+", type=valid_year, help="years to generate a calendar for")
+    parser.add_argument("year", nargs="*", type=valid_year, help="years to generate a calendar for")
     return parser
 
 
@@ -206,15 +227,7 @@ def set_day_borders(doc, table, year, start_month, weekends, holidays, no_holida
                     table.set_cell_style(row_num + 1, col_num + 3, "Weekend")
 
 
-def create_calendar(parser, args):
-    try:
-        holidays = country_holidays(args.country, subdiv=args.region)
-    except NotImplementedError as e:
-        parser.print_usage()
-        script_name = basename(argv[0])
-        print(f"{script_name}: error: {e}", file=stderr)
-        exit(1)
-
+def create_calendar(args, holidays):
     doc = Document()
     doc.sheets[0].name = sheet_name(args.year[0], args.start_month)
     for year in args.year[1:]:
@@ -241,13 +254,37 @@ def create_calendar(parser, args):
 
 
 def main():
+    generate_country_lookups()
+
     parser = command_line_parser()
     args = parser.parse_args()
 
     if args.version:
         print(__version__)
+    elif args.list_countries:
+        for alpha2, name in ALPHA2_TO_COUNTRY.items():
+            print(f"{alpha2}: {name}")
+        exit(0)
+    elif args.list_regions and args.country is None:
+        parser.error("--list-regions requires a country")
+    elif args.list_regions:
+        if args.country in COUNTRY_TO_ALPHA2:
+            country = COUNTRY_TO_ALPHA2[args.country]
+        elif args.country not in ALPHA2_TO_COUNTRY:
+            parser.error(f"country '{args.country}' not available")
+        else:
+            country = args.country
+            for region in ALPHA2_REGIONS[country]:
+                print(region)
+            exit(0)
     else:
-        create_calendar(parser, args)
+        if args.country in COUNTRY_TO_ALPHA2:
+            country = COUNTRY_TO_ALPHA2[args.country]
+        else:
+            country = args.country
+        holidays = country_holidays(country, subdiv=args.region)
+
+    create_calendar(args, holidays)
 
 
 if __name__ == "__main__":
