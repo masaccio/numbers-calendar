@@ -28,7 +28,7 @@ build
 
 # Local
 *.ignore
-.bootstrap
+*.numbers
 
 # Profiling
 prof/
