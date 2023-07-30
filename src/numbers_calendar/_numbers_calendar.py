@@ -7,8 +7,7 @@ from locale import getlocale
 from dateutil.relativedelta import relativedelta
 from holidays import country_holidays, list_supported_countries
 from numbers_parser import RGB, Border, Document, Alignment
-from os.path import basename
-from sys import argv, exit, stderr
+from sys import exit
 
 from numbers_calendar import __version__
 
