@@ -7,8 +7,16 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["--start-month=April", "--weekend=Sat", "--weekend=Sun", "2023"],
+            "justMyCode": false,
+            "args": [
+                "--start-month=April",
+                "--country=GB", 
+                "--region=ENG", 
+                "--weekend=Sat", 
+                "--weekend=Sun", 
+                "2023",
+                "2024"
+            ],
             "env": {
                 "PYTEST_ADDOPTS": "--no-cov"
             }
