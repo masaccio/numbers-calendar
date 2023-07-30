@@ -4,7 +4,10 @@ from datetime import date
 from locale import getlocale
 
 from dateutil.relativedelta import relativedelta
-from numbers_parser import RGB, Border, Document, Style, Alignment
+from holidays import country_holidays
+from numbers_parser import RGB, Border, Document, Alignment
+from os.path import basename
+from sys import exit, stderr
 
 from numbers_calendar import __version__
 
@@ -79,6 +82,7 @@ def command_line_parser():
         type=valid_weekday,
         default=[6, 7],
         nargs="*",
+        action="extend",
         metavar="day",
         help="Days to highlight as weekends (default: Sat, Sun)",
     )
@@ -93,7 +97,14 @@ def command_line_parser():
         "--country",
         default=DEFAULT_LOCALE,
         metavar="country",
+        type=str,
         help=f"Country to use for national holidays (default: {DEFAULT_LOCALE})",
+    )
+    parser.add_argument(
+        "--region",
+        metavar="region",
+        type=str,
+        help=f"State, province or other subdivision within a country",
     )
     parser.add_argument("year", nargs="+", type=valid_year, help="years to generate a calendar for")
     return parser
@@ -169,18 +180,18 @@ def set_month_names(doc, table, year, start_month):
         table.set_cell_border(0, offset + 3, ALL_BORDERS, SOLID_BORDER)
 
 
-def set_day_borders(doc, table, year, start_month):
+def set_day_borders(doc, table, year, start_month, weekends, holidays):
     """Set the borders for all days of the month"""
-    weekend_style = doc.add_style(bg_color=RGB(0, 0, 0), name="Weekend")
+    weekend_style = doc.add_style(bg_color=RGB(146, 146, 146), name="Weekend")
+    holiday_style = doc.add_style(bg_color=RGB(0, 0, 0), name="Holidays")
 
-    start_dt = date(year, start_month, 1)
     for row_num in range(0, 12):
         month_num = start_month + row_num
         if month_num > 12:
-            month_dt = start_dt + relativedelta(months=month_num % 12, years=1)
+            month_dt = date(year, month_num % 12, 1)
             (_, num_days) = calendar.monthrange(year, month_num % 12)
         else:
-            month_dt = start_dt + relativedelta(months=month_num)
+            month_dt = date(year, month_num, 1)
             (_, num_days) = calendar.monthrange(year, month_num)
         for col_num in range(0, 31):
             if col_num >= num_days:
@@ -188,11 +199,21 @@ def set_day_borders(doc, table, year, start_month):
             else:
                 day_dt = month_dt + relativedelta(days=col_num)
                 table.set_cell_border(row_num + 1, col_num + 3, ALL_BORDERS, SOLID_BORDER)
-                # if day_dt.isoweekday() == 6 or day_dt.isoweekday() == 7:
-                #     table.set_cell_style(month_num, col_num, weekend_style)
+                if holidays.get(day_dt) is not None:
+                    table.set_cell_style(row_num + 1, col_num + 3, holiday_style)
+                elif day_dt.isoweekday() in weekends:
+                    table.set_cell_style(row_num + 1, col_num + 3, weekend_style)
 
 
-def create_calendar(args):
+def create_calendar(parser, args):
+    try:
+        holidays = country_holidays(args.country, subdiv=args.region)
+    except NotImplementedError as e:
+        parser.print_usage()
+        script_name = basename(sys.argv[0])
+        print(f"{script_name}: error: {e}", file=stderr)
+        exit(1)
+
     doc = Document()
     doc.sheets[0].name = sheet_name(args.year[0], args.start_month)
     for year in args.year[1:]:
@@ -203,7 +224,7 @@ def create_calendar(args):
         set_calendar_cell_sizes(table)
         set_month_borders(doc, table, year, args.start_month)
         set_month_names(doc, table, year, args.start_month)
-        set_day_borders(doc, table, year, args.start_month)
+        set_day_borders(doc, table, year, args.start_month, args.weekend, holidays)
 
     doc.save(args.output)
 
@@ -215,7 +236,7 @@ def main():
     if args.version:
         print(__version__)
     else:
-        create_calendar(args)
+        create_calendar(parser, args)
 
 
 if __name__ == "__main__":
