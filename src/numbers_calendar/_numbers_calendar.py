@@ -35,9 +35,6 @@ WEEKDAY_MAP = generate_weekday_map()
 ALL_BORDERS = ["top", "right", "bottom", "left"]
 SOLID_BORDER = Border(1.0, RGB(0, 0, 0), "solid")
 NO_BORDER = Border(0.0, RGB(0, 0, 0), "none")
-COUNTRY_TO_ALPHA2 = {}
-ALPHA2_TO_COUNTRY = {}
-ALPHA2_REGIONS = {}
 
 
 def valid_month(month):
@@ -70,12 +67,17 @@ def valid_year(year):
 
 
 def generate_country_lookups():
+    alpha2_to_country = {}
+    country_to_alpha2 = {}
+    alpha2_regions = {}
     for alpha2, subdivs in list_supported_countries().items():
         country_data = pycountry.countries.get(alpha_2=alpha2)
         if country_data is not None:
-            ALPHA2_TO_COUNTRY[alpha2] = country_data.name
-            COUNTRY_TO_ALPHA2[country_data.name] = alpha2
-            ALPHA2_REGIONS[alpha2] = subdivs
+            alpha2_to_country[alpha2] = country_data.name
+            country_to_alpha2[country_data.name] = alpha2
+            alpha2_regions[alpha2] = subdivs
+
+    return alpha2_to_country, country_to_alpha2, alpha2_regions
 
 
 def command_line_parser():
@@ -175,13 +177,15 @@ def set_month_borders(doc, table, year, start_month):
         table.merge_cells(f"A2:{year_1_end_ref}")
         table.write("A2", str(year), style="Year")
         table.merge_cells(f"{year_2_start_ref}:A13")
-        table.write(year_1_end_ref, str(year + 1), style="Year")
-        table.set_cell_border("A2", ALL_BORDERS, SOLID_BORDER)
-        table.set_cell_border(year_2_start_ref, ALL_BORDERS, SOLID_BORDER)
+        table.write(year_2_start_ref, str(year + 1), style="Year")
+        table.set_cell_border(year_1_end_ref, "bottom", SOLID_BORDER)
+        table.set_cell_border(year_2_start_ref, "top", SOLID_BORDER)
     else:
         table.merge_cells("A2:A13")
         table.write("A2", str(year), style="Year")
-        table.set_cell_border("A2", ALL_BORDERS, SOLID_BORDER)
+    table.set_cell_border("A2", "top", SOLID_BORDER, 1)
+    table.set_cell_border("A2", ["left", "right"], SOLID_BORDER, 12)
+    table.set_cell_border("A13", "bottom", SOLID_BORDER, 1)
 
 
 def set_month_names(doc, table, year, start_month):
@@ -211,19 +215,20 @@ def set_day_borders(doc, table, year, start_month, weekends, holidays, no_holida
             month_dt = date(year, month_num, 1)
             (_, num_days) = calendar.monthrange(year, month_num)
         for col_num in range(0, 31):
+            row_col = (row_num + 1, col_num + 3)
             if col_num >= num_days:
-                table.set_cell_border(row_num + 1, col_num + 3, "right", NO_BORDER)
+                table.set_cell_border(*row_col, ["right", "bottom"], NO_BORDER)
             else:
                 day_dt = month_dt + relativedelta(days=col_num)
-                table.set_cell_border(row_num + 1, col_num + 3, ALL_BORDERS, SOLID_BORDER)
                 is_weekend = day_dt.isoweekday() in weekends
                 is_holiday = holidays.get(day_dt) is not None
                 if is_holiday and is_weekend and no_holiday_weekends:
-                    table.set_cell_style(row_num + 1, col_num + 3, "Weekend")
+                    table.set_cell_style(*row_col, "Weekend")
                 elif is_holiday:
-                    table.set_cell_style(row_num + 1, col_num + 3, "Holiday")
+                    table.set_cell_style(*row_col, "Holiday")
                 elif is_weekend:
-                    table.set_cell_style(row_num + 1, col_num + 3, "Weekend")
+                    table.set_cell_style(*row_col, "Weekend")
+                table.set_cell_border(*row_col, ALL_BORDERS, SOLID_BORDER)
 
 
 def create_calendar(args, holidays):
@@ -253,7 +258,7 @@ def create_calendar(args, holidays):
 
 
 def main():
-    generate_country_lookups()
+    alpha2_to_country, country_to_alpha2, alpha2_regions = generate_country_lookups()
 
     parser = command_line_parser()
     args = parser.parse_args()
@@ -261,24 +266,24 @@ def main():
     if args.version:
         print(__version__)
     elif args.list_countries:
-        for alpha2, name in ALPHA2_TO_COUNTRY.items():
+        for alpha2, name in alpha2_to_country.items():
             print(f"{alpha2}: {name}")
         exit(0)
     elif args.list_regions and args.country is None:
         parser.error("--list-regions requires a country")
     elif args.list_regions:
-        if args.country in COUNTRY_TO_ALPHA2:
-            country = COUNTRY_TO_ALPHA2[args.country]
-        elif args.country not in ALPHA2_TO_COUNTRY:
+        if args.country in country_to_alpha2:
+            country = country_to_alpha2[args.country]
+        elif args.country not in alpha2_to_country:
             parser.error(f"country '{args.country}' not available")
         else:
             country = args.country
-            for region in ALPHA2_REGIONS[country]:
+            for region in alpha2_regions[country]:
                 print(region)
             exit(0)
     else:
-        if args.country in COUNTRY_TO_ALPHA2:
-            country = COUNTRY_TO_ALPHA2[args.country]
+        if args.country in country_to_alpha2:
+            country = country_to_alpha2[args.country]
         else:
             country = args.country
         holidays = country_holidays(country, subdiv=args.region)
