@@ -32,7 +32,7 @@ DEFAULT_FILENAME = "calendar.numbers"
 DEFAULT_LOCALE = getlocale()[0][-2:]
 MONTH_MAP = generate_month_map()
 WEEKDAY_MAP = generate_weekday_map()
-ALL_BORDERS = ["top", "right", "bottom", "left"]
+ALL_SIDES = ["top", "right", "bottom", "left"]
 SOLID_BORDER = Border(1.0, RGB(0, 0, 0), "solid")
 NO_BORDER = Border(0.0, RGB(0, 0, 0), "none")
 
@@ -164,12 +164,16 @@ def set_calendar_cell_sizes(table):
 
 def set_month_borders(doc, table, year, start_month):
     """Set the borders and merge the month and year names"""
-    table.set_cell_border(0, 0, ALL_BORDERS, NO_BORDER)
-    table.set_cell_border(0, 1, ALL_BORDERS, NO_BORDER)
-    for row_num in range(0, 14):
-        table.set_cell_border(row_num, 2, ALL_BORDERS, NO_BORDER)
-    table.num_header_rows = 0
-    table.num_header_cols = 0
+    table.set_cell_border("A1", ALL_SIDES, NO_BORDER)
+    table.set_cell_border("B1", ALL_SIDES, NO_BORDER)
+
+    # Clear column C
+    table.set_cell_border("C1", ["top", "left"], NO_BORDER)
+    for row_num in range(0, 12):
+        table.set_cell_border(row_num + 1, 1, ALL_SIDES, SOLID_BORDER)
+        table.set_cell_border(row_num + 1, 2, ["top", "bottom"], NO_BORDER)
+        table.set_cell_border(row_num + 1, 2, "left", SOLID_BORDER)
+
     if start_month > 1:
         year_1_length = 13 - start_month
         year_1_end_ref = f"A{year_1_length + 1}"
@@ -178,14 +182,15 @@ def set_month_borders(doc, table, year, start_month):
         table.write("A2", str(year), style="Year")
         table.merge_cells(f"{year_2_start_ref}:A13")
         table.write(year_2_start_ref, str(year + 1), style="Year")
-        table.set_cell_border(year_1_end_ref, "bottom", SOLID_BORDER)
         table.set_cell_border(year_2_start_ref, "top", SOLID_BORDER)
     else:
         table.merge_cells("A2:A13")
         table.write("A2", str(year), style="Year")
-    table.set_cell_border("A2", "top", SOLID_BORDER, 1)
-    table.set_cell_border("A2", ["left", "right"], SOLID_BORDER, 12)
-    table.set_cell_border("A13", "bottom", SOLID_BORDER, 1)
+    table.set_cell_border("A2", "top", SOLID_BORDER)
+    table.set_cell_border("A2", "left", SOLID_BORDER, 12)
+    # table.set_cell_border("B2", "left", SOLID_BORDER, 12)
+    table.set_cell_border("C1", "left", NO_BORDER)
+    table.set_cell_border("A13", "bottom", SOLID_BORDER)
 
 
 def set_month_names(doc, table, year, start_month):
@@ -196,11 +201,11 @@ def set_month_names(doc, table, year, start_month):
         else:
             month_name = calendar.month_name[(start_month + month_num)]
         table.write(month_num + 1, 1, month_name, style="Month")
-        table.set_cell_border(month_num + 1, 1, ALL_BORDERS, SOLID_BORDER)
+        table.set_cell_border(month_num + 1, 1, ALL_SIDES, SOLID_BORDER)
 
     for offset in range(0, 31):
         table.write(0, offset + 3, str(offset + 1), style="Day Number")
-        table.set_cell_border(0, offset + 3, ALL_BORDERS, SOLID_BORDER)
+        table.set_cell_border(0, offset + 3, ALL_SIDES, SOLID_BORDER)
 
 
 def set_day_borders(doc, table, year, start_month, weekends, holidays, no_holiday_weekends):
@@ -228,11 +233,11 @@ def set_day_borders(doc, table, year, start_month, weekends, holidays, no_holida
                     table.set_cell_style(*row_col, "Holiday")
                 elif is_weekend:
                     table.set_cell_style(*row_col, "Weekend")
-                table.set_cell_border(*row_col, ALL_BORDERS, SOLID_BORDER)
+                table.set_cell_border(*row_col, ALL_SIDES, SOLID_BORDER)
 
 
 def create_calendar(args, holidays):
-    doc = Document()
+    doc = Document(num_header_rows=0, num_header_cols=0, num_rows=13, num_cols=34)
     doc.sheets[0].name = sheet_name(args.year[0], args.start_month)
     for year in args.year[1:]:
         doc.add_sheet(sheet_name=sheet_name(year, args.start_month))
