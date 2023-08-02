@@ -274,7 +274,7 @@ roman = "^3.3"
 type = "git"
 url = "https://github.com/masaccio/numbers-parser.git"
 reference = "HEAD"
-resolved_reference = "37ca4db931c65f3a57bef54d849b068bb7304649"
+resolved_reference = "88a0882dc30a4a124b0405d3a0edb9c77d813d37"
 
 [[package]]
 name = "packaging"

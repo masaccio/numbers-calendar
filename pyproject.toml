@@ -19,7 +19,8 @@ numbers-calendar = "numbers_calendar._numbers_calendar:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-numbers-parser = {git = "https://github.com/masaccio/numbers-parser.git"}
+# numbers-parser = {git = "https://github.com/masaccio/numbers-parser.git"}
+numbers-parser = "^4.3"
 holidays = "^0.29"
 pycountry = "^22.3.5"
 
