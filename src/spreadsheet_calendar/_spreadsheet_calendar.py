@@ -234,11 +234,16 @@ class Calendar(ABC):
 
     def set_months(self, sheet: object, year: int):
         """Set the borders and merge the month and year names"""
-        self.set_cell_style(sheet, 0, 0, "Empty")
-        self.set_cell_style(sheet, 0, 1, "Empty")
 
+        # Empty cells
+        for col_num in range(0, 3):
+            self.set_cell_style(sheet, 0, col_num, "Empty")
         for row_num in range(0, 12):
             self.set_cell_style(sheet, row_num + 1, 2, "Empty")
+
+        for offset in range(0, 12):
+            self.set_cell_style(sheet, offset + 1, 0, "Month")
+            self.set_cell_style(sheet, offset + 1, 1, "Month")
 
         if self.start_month > 1:
             offset = 13 - self.start_month
@@ -338,15 +343,20 @@ class NumbersCalendar(Calendar):
 
     def set_cell_style(self, sheet: object, row_num: int, col_num: int, style: str):
         sheet.tables[0].set_cell_style(row_num, col_num, style)
-        if "border" in self.styles[style]:
-            for side, border in self.styles[style]["border"].items():
-                sheet.tables[0].set_cell_border(row_num, col_num, side, Border(*border))
+        self.set_border(sheet, row_num, col_num, style)
 
     def save(self):
         self.doc.save(self.filename)
 
     def write(self, sheet: object, row_num: int, col_num: int, value: str, style: str):
         sheet.tables[0].write(row_num, col_num, value, style=style)
+        self.set_border(sheet, row_num, col_num, style)
+
+    def set_border(self, sheet: object, row_num: int, col_num: int, style: str):
+        for side, border in self.styles[style]["border"].items():
+            cell = sheet.tables[0].cell(row_num, col_num)
+            if not (cell.is_merged and side in ["bottom", "right"]):
+                sheet.tables[0].set_cell_border(row_num, col_num, side, Border(*border))
 
 
 @dataclass
@@ -369,13 +379,12 @@ class ExcelCalendar(Calendar):
             kwargs["bg_color"] = "#{0:02x}{1:02x}{2:02x}".format(
                 kwargs["bg_color"][0], kwargs["bg_color"][1], kwargs["bg_color"][2]
             )
-        if "border" in kwargs:
-            for side, border in kwargs["border"].items():
-                if border[2] == "none":
-                    kwargs[side] = 0
-                else:
-                    kwargs[side] = 1
-            del kwargs["border"]
+        for side, border in kwargs["border"].items():
+            if border[2] == "none":
+                kwargs[side] = 0
+            else:
+                kwargs[side] = 1
+        del kwargs["border"]
         name = kwargs["name"]
         del kwargs["name"]
         self.styles[name] = self.workbook.add_format(kwargs)
