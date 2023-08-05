@@ -2,11 +2,19 @@
 
 A command-line utility to generate whole year calendars in Excel and Apple Numbers formats. Each year is saved as a separate sheet and is formatted to include national holidays.
 
+## Installation
+
+`spreadsheet-calendar` is most simply installed using pip:
+
+``` text
+python3 -m pip install spreadsheet-calendar
+```
+
 ## Usage
 
 By default, `spreadsheet-calendar` creates a calendar for the current year and the current locale. Available national holidays are those supported by [python-holidays](https://pypi.org/project/holidays/). The list of available countres can be listed using `--list-countries`. Within a country, subdivisions such as regions and states can be used. These can be listed using `--country=name --list-regions`. When listing countries and regions, no calendar is generated and `spreadsheet-calendar` exits after printing the `stdout`.
 
-```
+``` text
 spreadsheet-calendar [-h] [-V] [--list-countries] [--list-regions]
                      [--no-holiday-weekends] [--format {numbers,excel}]
                      [--start-month month] [--weekend [day ...]] [-o filename]
@@ -29,7 +37,6 @@ Available options:
 * `-o`, `--output`: the nme of the output file. Files are always overwitten. The default depends upon the `--format` option: `calendar.xlsx` for `--format=excel` and `calendar.numbers` for `--format=numbers`.
 * `--country`: the name of the country to use for national holidays (default: current locale's). Country names can be 2-character locale names like `GB` or full country names like `United Kingdom`.
 * `--region`: the name of the subdivision within a country. Names can be the abbreviations supportef by [python-holidays](https://pypi.org/project/holidays/) like `ENG` or full names like `England`.
-
 
 ## License
 
