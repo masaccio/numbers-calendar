@@ -29,6 +29,7 @@ build
 # Local
 *.ignore
 *.numbers
+*.xlsx
 
 # Profiling
 prof/
