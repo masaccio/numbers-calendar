@@ -33,6 +33,7 @@ def generate_weekday_map():
 
 DEFAULT_LOCALE = getlocale()[0][-2:]
 DEFAULT_WEEKENDS = [6, 7]
+DEFAULT_YEAR = date.today().year
 MONTH_MAP = generate_month_map()
 WEEKDAY_MAP = generate_weekday_map()
 
@@ -81,9 +82,7 @@ def generate_country_lookups():
 
 
 def command_line_parser():
-    parser = argparse.ArgumentParser(
-        description="Create Apple Numbers spreadsheet calendars using python"
-    )
+    parser = argparse.ArgumentParser(description="Create spreadsheet calendars using python")
     parser.add_argument("-V", "--version", action="store_true")
     parser.add_argument(
         "--list-countries", action="store_true", help="List available country code and exit"
@@ -101,7 +100,7 @@ def command_line_parser():
     )
     parser.add_argument(
         "--format",
-        default="numbers",
+        default="excel",
         choices=["numbers", "excel"],
         help="spreadsheet output format",
     )
@@ -140,7 +139,13 @@ def command_line_parser():
         type=str,
         help="State, province or other subdivision within a country",
     )
-    parser.add_argument("year", nargs="*", type=valid_year, help="years to generate a calendar for")
+    parser.add_argument(
+        "year",
+        default=[DEFAULT_YEAR],
+        nargs="*",
+        type=valid_year,
+        help="years to generate a calendar for (default: current year)",
+    )
     return parser
 
 
