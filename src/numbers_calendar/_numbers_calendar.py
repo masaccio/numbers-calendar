@@ -1,13 +1,16 @@
 import argparse
 import calendar
-import pycountry
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import date
 from locale import getlocale
-
-from dateutil.relativedelta import relativedelta
-from holidays import country_holidays, list_supported_countries
-from numbers_parser import RGB, Border, Document, Alignment
 from sys import exit
+
+import pycountry
+from dateutil.relativedelta import relativedelta
+from holidays import HolidayBase, country_holidays, list_supported_countries
+from numbers_parser import Border, Document, xl_range
+from xlsxwriter import Workbook
 
 from numbers_calendar import __version__
 
@@ -28,13 +31,10 @@ def generate_weekday_map():
     return weekday_map
 
 
-DEFAULT_FILENAME = "calendar.numbers"
 DEFAULT_LOCALE = getlocale()[0][-2:]
+DEFAULT_WEEKENDS = [6, 7]
 MONTH_MAP = generate_month_map()
 WEEKDAY_MAP = generate_weekday_map()
-ALL_SIDES = ["top", "right", "bottom", "left"]
-SOLID_BORDER = Border(1.0, RGB(0, 0, 0), "solid")
-NO_BORDER = Border(0.0, RGB(0, 0, 0), "none")
 
 
 def valid_month(month):
@@ -100,15 +100,22 @@ def command_line_parser():
         help="Don't color weekends with holidays",
     )
     parser.add_argument(
+        "--format",
+        default="numbers",
+        choices=["numbers", "excel"],
+        help="spreadsheet output format",
+    )
+    parser.add_argument(
         "--start-month",
         type=valid_month,
+        metavar="month",
         default="Jan",
         help="Start month for calendar (default: Jan)",
     )
     parser.add_argument(
         "--weekend",
         type=valid_weekday,
-        default=[6, 7],
+        default=DEFAULT_WEEKENDS,
         nargs="*",
         action="extend",
         metavar="day",
@@ -118,8 +125,7 @@ def command_line_parser():
         "-o",
         "--output",
         metavar="filename",
-        default=DEFAULT_FILENAME,
-        help=f"Output file (default: {DEFAULT_FILENAME})",
+        help="Output file (default: calendar.numbers/calendar.xlsx)",
     )
     parser.add_argument(
         "--country",
@@ -138,128 +144,256 @@ def command_line_parser():
     return parser
 
 
-def sheet_name(year, start_month):
-    """Year name for sheet, e.g. 2023-24"""
-    if start_month > 0:
-        year_1 = str(year)
-        if len(year_1) >= 4:
-            year_2 = str(year + 1)[-2:]
-        else:
-            year_2 = str(year + 1)
-        return f"{year_1}-{year_2}"
-    else:
-        return str(year)
+@dataclass
+class Calendar(ABC):
+    start_month: int = 1
+    weekends: list = field(default_factory=lambda: DEFAULT_WEEKENDS)
+    no_holiday_weekends: bool = False
+    holidays: HolidayBase = None
+    filename: str = None
 
-
-def set_calendar_cell_sizes(table):
-    """Set the row and column sizes for the calendar"""
-    for row_num in range(0, 14):
-        table.row_height(row_num, 30.0)
-    table.col_width(0, 40.0)
-    table.col_width(1, 60.0)
-    table.col_width(2, 20.0)
-    for col_num in range(3, 34):
-        table.col_width(col_num, 30.0)
-
-
-def set_month_borders(doc, table, year, start_month):
-    """Set the borders and merge the month and year names"""
-    table.set_cell_border("A1", ALL_SIDES, NO_BORDER)
-    table.set_cell_border("B1", ALL_SIDES, NO_BORDER)
-
-    # Clear column C
-    table.set_cell_border("C1", ["top", "left"], NO_BORDER)
-    for row_num in range(0, 12):
-        table.set_cell_border(row_num + 1, 1, ALL_SIDES, SOLID_BORDER)
-        table.set_cell_border(row_num + 1, 2, ["top", "bottom"], NO_BORDER)
-        table.set_cell_border(row_num + 1, 2, "left", SOLID_BORDER)
-
-    if start_month > 1:
-        year_1_length = 13 - start_month
-        year_1_end_ref = f"A{year_1_length + 1}"
-        year_2_start_ref = f"A{year_1_length + 2}"
-        table.merge_cells(f"A2:{year_1_end_ref}")
-        table.write("A2", str(year), style="Year")
-        table.merge_cells(f"{year_2_start_ref}:A13")
-        table.write(year_2_start_ref, str(year + 1), style="Year")
-        table.set_cell_border(year_2_start_ref, "top", SOLID_BORDER)
-    else:
-        table.merge_cells("A2:A13")
-        table.write("A2", str(year), style="Year")
-    table.set_cell_border("A2", "top", SOLID_BORDER)
-    table.set_cell_border("A2", "left", SOLID_BORDER, 12)
-    # table.set_cell_border("B2", "left", SOLID_BORDER, 12)
-    table.set_cell_border("C1", "left", NO_BORDER)
-    table.set_cell_border("A13", "bottom", SOLID_BORDER)
-
-
-def set_month_names(doc, table, year, start_month):
-    """Set the names of months and years"""
-    for month_num in range(0, 12):
-        if start_month + month_num > 12:
-            month_name = calendar.month_name[(start_month + month_num) % 12]
-        else:
-            month_name = calendar.month_name[(start_month + month_num)]
-        table.write(month_num + 1, 1, month_name, style="Month")
-        table.set_cell_border(month_num + 1, 1, ALL_SIDES, SOLID_BORDER)
-
-    for offset in range(0, 31):
-        table.write(0, offset + 3, str(offset + 1), style="Day Number")
-        table.set_cell_border(0, offset + 3, ALL_SIDES, SOLID_BORDER)
-
-
-def set_day_borders(doc, table, year, start_month, weekends, holidays, no_holiday_weekends):
-    """Set the borders for all days of the month"""
-
-    for row_num in range(0, 12):
-        month_num = start_month + row_num
-        if month_num > 12:
-            month_dt = date(year, month_num % 12, 1)
-            (_, num_days) = calendar.monthrange(year, month_num % 12)
-        else:
-            month_dt = date(year, month_num, 1)
-            (_, num_days) = calendar.monthrange(year, month_num)
-        for col_num in range(0, 31):
-            row_col = (row_num + 1, col_num + 3)
-            if col_num >= num_days:
-                table.set_cell_border(*row_col, ["right", "bottom"], NO_BORDER)
-            else:
-                day_dt = month_dt + relativedelta(days=col_num)
-                is_weekend = day_dt.isoweekday() in weekends
-                is_holiday = holidays.get(day_dt) is not None
-                if is_holiday and is_weekend and no_holiday_weekends:
-                    table.set_cell_style(*row_col, "Weekend")
-                elif is_holiday:
-                    table.set_cell_style(*row_col, "Holiday")
-                elif is_weekend:
-                    table.set_cell_style(*row_col, "Weekend")
-                table.set_cell_border(*row_col, ALL_SIDES, SOLID_BORDER)
-
-
-def create_calendar(args, holidays):
-    doc = Document(num_header_rows=0, num_header_cols=0, num_rows=13, num_cols=34)
-    doc.sheets[0].name = sheet_name(args.year[0], args.start_month)
-    for year in args.year[1:]:
-        doc.add_sheet(sheet_name=sheet_name(year, args.start_month))
-
-    align_cm = Alignment("center", "middle")
-    align_lm = Alignment("left", "middle")
-    doc.add_style(bg_color=RGB(146, 146, 146), name="Weekend")
-    doc.add_style(bg_color=RGB(0, 0, 0), name="Holiday")
-    doc.add_style(font_size=10.0, bold=True, alignment=align_cm, name="Year")
-    doc.add_style(font_size=10.0, alignment=align_lm, name="Month")
-    doc.add_style(font_size=10.0, alignment=align_cm, name="Day Number")
-
-    for year in args.year:
-        table = doc.sheets[sheet_name(year, args.start_month)].tables[0]
-        set_calendar_cell_sizes(table)
-        set_month_borders(doc, table, year, args.start_month)
-        set_month_names(doc, table, year, args.start_month)
-        set_day_borders(
-            doc, table, year, args.start_month, args.weekend, holidays, args.no_holiday_weekends
+    def __post_init__(self):
+        no_border = {x: (0.0, (0, 0, 0), "none") for x in ["top", "right", "bottom", "left"]}
+        solid_border = {x: (1.0, (0, 0, 0), "solid") for x in ["top", "right", "bottom", "left"]}
+        self.add_style(bg_color=(146, 146, 146), border=solid_border, name="Weekend")
+        self.add_style(border=solid_border, name="Month Day")
+        self.add_style(bg_color=(0, 0, 0), border=solid_border, name="Holiday")
+        self.add_style(
+            font_size=10.0,
+            bold=True,
+            alignment=("center", "middle"),
+            border=solid_border,
+            name="Year",
+        )
+        self.add_style(
+            font_size=10.0, alignment=("left", "middle"), border=solid_border, name="Month"
+        )
+        self.add_style(
+            font_size=10.0, alignment=("center", "middle"), border=solid_border, name="Day Number"
+        )
+        self.add_style(border=no_border, name="Empty")
+        self.add_style(
+            border={"right": (0.0, (0, 0, 0), "none"), "bottom": (0.0, (0, 0, 0), "none")},
+            name="Empty Day",
         )
 
-    doc.save(args.output)
+    @abstractmethod
+    def add_style(self, **kwargs):
+        pass
+
+    @abstractmethod
+    def add_sheet(self, sheet_name: str):
+        pass
+
+    @abstractmethod
+    def col_width(self, sheet: object, col_num: int, width: float):
+        pass
+
+    @abstractmethod
+    def merge_cells(
+        self, sheet: object, row_start: int, col_start: int, row_end: int, col_end: int
+    ):
+        pass
+
+    @abstractmethod
+    def row_height(self, sheet: object, col_num: int, height: float):
+        pass
+
+    @abstractmethod
+    def save(self):
+        pass
+
+    @abstractmethod
+    def set_cell_style(self, sheet: object, row_num: int, col_num: int, style: str):
+        pass
+
+    @abstractmethod
+    def write(self, sheet: object, row_num: int, col_num: int, value: str, style: str):
+        pass
+
+    def add_year(self, year: int):
+        sheet = self.add_sheet(sheet_name=self.sheet_name(year))
+        self.set_cell_sizes(sheet)
+        self.set_months(sheet, year)
+        self.set_days(sheet, year)
+
+    def set_cell_sizes(self, sheet):
+        """Set the row and column sizes for the calendar"""
+        for row_num in range(0, 14):
+            self.row_height(sheet, row_num, 30.0)
+        self.col_width(sheet, 0, 40.0)
+        self.col_width(sheet, 1, 60.0)
+        self.col_width(sheet, 2, 20.0)
+        for col_num in range(3, 34):
+            self.col_width(sheet, col_num, 30.0)
+
+    def set_months(self, sheet: object, year: int):
+        """Set the borders and merge the month and year names"""
+        self.set_cell_style(sheet, 0, 0, "Empty")
+        self.set_cell_style(sheet, 0, 1, "Empty")
+
+        for row_num in range(0, 12):
+            self.set_cell_style(sheet, row_num + 1, 2, "Empty")
+
+        if self.start_month > 1:
+            offset = 13 - self.start_month
+            self.merge_cells(sheet, 1, 0, offset, 0)
+            self.write(sheet, 1, 0, str(year), "Year")
+            self.merge_cells(sheet, offset + 1, 0, 12, 0)
+            self.write(sheet, offset + 1, 0, str(year + 1), "Year")
+        else:
+            self.merge_cells(sheet, 1, 0, 12, 0)
+            self.write(sheet, 1, 0, str(year), "Year")
+
+        for month_num in range(0, 12):
+            if self.start_month + month_num > 12:
+                month_name = calendar.month_name[(self.start_month + month_num) % 12]
+            else:
+                month_name = calendar.month_name[(self.start_month + month_num)]
+            self.write(sheet, month_num + 1, 1, month_name, "Month")
+
+        # Days along top of sheet
+        for offset in range(0, 31):
+            self.write(sheet, 0, offset + 3, str(offset + 1), "Day Number")
+
+    def set_days(self, sheet: object, year: int):
+        """Set the styles and borders for all days of the month"""
+
+        for row_num in range(0, 12):
+            month_num = self.start_month + row_num
+            if month_num > 12:
+                month_dt = date(year, month_num % 12, 1)
+                (_, num_days) = calendar.monthrange(year, month_num % 12)
+            else:
+                month_dt = date(year, month_num, 1)
+                (_, num_days) = calendar.monthrange(year, month_num)
+            for col_num in range(0, 31):
+                row_col = (row_num + 1, col_num + 3)
+                if col_num >= num_days:
+                    self.set_cell_style(sheet, *row_col, "Empty Day")
+                else:
+                    day_dt = month_dt + relativedelta(days=col_num)
+                    is_weekend = day_dt.isoweekday() in self.weekends
+                    is_holiday = self.holidays.get(day_dt) is not None
+                    if is_holiday and is_weekend and self.no_holiday_weekends:
+                        self.set_cell_style(sheet, *row_col, "Weekend")
+                    elif is_holiday:
+                        self.set_cell_style(sheet, *row_col, "Holiday")
+                    elif is_weekend:
+                        self.set_cell_style(sheet, *row_col, "Weekend")
+                    else:
+                        self.set_cell_style(sheet, *row_col, "Month Day")
+
+    def sheet_name(self, year: int):
+        """Year name for sheet, e.g. 2023-24"""
+        if self.start_month > 0:
+            year_1 = str(year)
+            if len(year_1) >= 4:
+                year_2 = str(year + 1)[-2:]
+            else:
+                year_2 = str(year + 1)
+            return f"{year_1}-{year_2}"
+        else:
+            return str(year)
+
+
+@dataclass
+class NumbersCalendar(Calendar):
+    def __post_init__(self):
+        self.doc = Document(num_header_rows=0, num_header_cols=0, num_rows=13, num_cols=34)
+        self.first_sheet = True
+        self.styles = {}
+        super().__post_init__()
+
+    def add_sheet(self, sheet_name: str) -> object:
+        if self.first_sheet:
+            self.doc.sheets[0].name = sheet_name
+        else:
+            self.doc.add_sheet(sheet_name=sheet_name)
+        self.first_sheet = False
+        return self.doc.sheets[-1]
+
+    def add_style(self, **kwargs):
+        self.styles[kwargs["name"]] = kwargs.copy()
+        if "border" in kwargs:
+            del kwargs["border"]
+        self.doc.add_style(**kwargs)
+
+    def col_width(self, sheet: object, col_num: int, width: float):
+        sheet.tables[0].col_width(col_num, width)
+
+    def merge_cells(
+        self, sheet: object, row_start: int, col_start: int, row_end: int, col_end: int
+    ):
+        ref = xl_range(row_start, col_start, row_end, col_end)
+        sheet.tables[0].merge_cells(ref)
+
+    def row_height(self, sheet: object, row_num: int, height: float):
+        sheet.tables[0].row_height(row_num, height)
+
+    def set_cell_style(self, sheet: object, row_num: int, col_num: int, style: str):
+        sheet.tables[0].set_cell_style(row_num, col_num, style)
+        if "border" in self.styles[style]:
+            for side, border in self.styles[style]["border"].items():
+                sheet.tables[0].set_cell_border(row_num, col_num, side, Border(*border))
+
+    def save(self):
+        self.doc.save(self.filename)
+
+    def write(self, sheet: object, row_num: int, col_num: int, value: str, style: str):
+        sheet.tables[0].write(row_num, col_num, value, style=style)
+
+
+@dataclass
+class ExcelCalendar(Calendar):
+    def __post_init__(self):
+        self.workbook = Workbook(self.filename)
+        self.styles = {}
+        super().__post_init__()
+
+    def add_sheet(self, sheet_name: str) -> object:
+        worksheet = self.workbook.add_worksheet(sheet_name)
+        return worksheet
+
+    def add_style(self, **kwargs):
+        if "alignment" in kwargs:
+            kwargs["align"] = kwargs["alignment"][0]
+            kwargs["valign"] = kwargs["alignment"][1]
+            del kwargs["alignment"]
+        if "bg_color" in kwargs:
+            kwargs["bg_color"] = "#{0:02x}{1:02x}{2:02x}".format(
+                kwargs["bg_color"][0], kwargs["bg_color"][1], kwargs["bg_color"][2]
+            )
+        if "border" in kwargs:
+            for side, border in kwargs["border"].items():
+                if border[2] == "none":
+                    kwargs[side] = 0
+                else:
+                    kwargs[side] = 1
+            del kwargs["border"]
+        name = kwargs["name"]
+        del kwargs["name"]
+        self.styles[name] = self.workbook.add_format(kwargs)
+
+    def col_width(self, sheet: object, col_num: int, width: float):
+        sheet.set_column_pixels(col_num, col_num, width)
+
+    def merge_cells(
+        self, sheet: object, row_start: int, col_start: int, row_end: int, col_end: int
+    ):
+        sheet.merge_range(row_start, col_start, row_end, col_end, None, self.styles["Year"])
+
+    def row_height(self, sheet: object, row_num: int, height: float):
+        sheet.set_row_pixels(row_num, height)
+
+    def set_cell_style(self, sheet: object, row_num: int, col_num: int, style: str):
+        sheet.write(row_num, col_num, None, self.styles[style])
+
+    def save(self):
+        self.workbook.close()
+
+    def write(self, sheet: object, row_num: int, col_num: int, value: str, style: str):
+        sheet.write(row_num, col_num, value, self.styles[style])
 
 
 def main():
@@ -291,9 +425,24 @@ def main():
             country = country_to_alpha2[args.country]
         else:
             country = args.country
-        holidays = country_holidays(country, subdiv=args.region)
 
-    create_calendar(args, holidays)
+        if args.output is None:
+            filename = "calendar.numbers" if args.format == "numbers" else "calendar.xlsx"
+        else:
+            filename = args.output
+
+        cls = NumbersCalendar if args.format == "numbers" else ExcelCalendar
+
+        doc = cls(
+            start_month=args.start_month,
+            weekends=args.weekend,
+            no_holiday_weekends=args.no_holiday_weekends,
+            holidays=country_holidays(country, subdiv=args.region),
+            filename=filename,
+        )
+        for year in args.year:
+            doc.add_year(year)
+        doc.save()
 
 
 if __name__ == "__main__":
