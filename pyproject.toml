@@ -23,6 +23,7 @@ python = "^3.8"
 numbers-parser = "^4.3"
 holidays = "^0.29"
 pycountry = "^22.3.5"
+xlsxwriter = "^3.1.2"
 
 [tool.poetry.group.dev.dependencies]
 black = {version = "^22.10.0", allow-prereleases = true}
