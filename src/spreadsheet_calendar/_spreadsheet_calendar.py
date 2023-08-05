@@ -149,39 +149,7 @@ def command_line_parser():
     return parser
 
 
-@dataclass
-class Calendar(ABC):
-    start_month: int = 1
-    weekends: list = field(default_factory=lambda: DEFAULT_WEEKENDS)
-    no_holiday_weekends: bool = False
-    holidays: HolidayBase = None
-    filename: str = None
-
-    def __post_init__(self):
-        no_border = {x: (0.0, (0, 0, 0), "none") for x in ["top", "right", "bottom", "left"]}
-        solid_border = {x: (1.0, (0, 0, 0), "solid") for x in ["top", "right", "bottom", "left"]}
-        self.add_style(bg_color=(146, 146, 146), border=solid_border, name="Weekend")
-        self.add_style(border=solid_border, name="Month Day")
-        self.add_style(bg_color=(0, 0, 0), border=solid_border, name="Holiday")
-        self.add_style(
-            font_size=10.0,
-            bold=True,
-            alignment=("center", "middle"),
-            border=solid_border,
-            name="Year",
-        )
-        self.add_style(
-            font_size=10.0, alignment=("left", "middle"), border=solid_border, name="Month"
-        )
-        self.add_style(
-            font_size=10.0, alignment=("center", "middle"), border=solid_border, name="Day Number"
-        )
-        self.add_style(border=no_border, name="Empty")
-        self.add_style(
-            border={"right": (0.0, (0, 0, 0), "none"), "bottom": (0.0, (0, 0, 0), "none")},
-            name="Empty Day",
-        )
-
+class CalendarInterface(ABC):
     @abstractmethod
     def add_style(self, **kwargs):
         pass
@@ -215,6 +183,40 @@ class Calendar(ABC):
     @abstractmethod
     def write(self, sheet: object, row_num: int, col_num: int, value: str, style: str):
         pass
+
+
+@dataclass
+class Calendar(CalendarInterface):
+    start_month: int = 1
+    weekends: list = field(default_factory=lambda: DEFAULT_WEEKENDS)
+    no_holiday_weekends: bool = False
+    holidays: HolidayBase = None
+    filename: str = None
+
+    def __post_init__(self):
+        no_border = {x: (0.0, (0, 0, 0), "none") for x in ["top", "right", "bottom", "left"]}
+        solid_border = {x: (1.0, (0, 0, 0), "solid") for x in ["top", "right", "bottom", "left"]}
+        self.add_style(bg_color=(146, 146, 146), border=solid_border, name="Weekend")
+        self.add_style(border=solid_border, name="Month Day")
+        self.add_style(bg_color=(0, 0, 0), border=solid_border, name="Holiday")
+        self.add_style(
+            font_size=10.0,
+            bold=True,
+            alignment=("center", "middle"),
+            border=solid_border,
+            name="Year",
+        )
+        self.add_style(
+            font_size=10.0, alignment=("left", "middle"), border=solid_border, name="Month"
+        )
+        self.add_style(
+            font_size=10.0, alignment=("center", "middle"), border=solid_border, name="Day Number"
+        )
+        self.add_style(border=no_border, name="Empty")
+        self.add_style(
+            border={"right": (0.0, (0, 0, 0), "none"), "bottom": (0.0, (0, 0, 0), "none")},
+            name="Empty Day",
+        )
 
     def add_year(self, year: int):
         sheet = self.add_sheet(sheet_name=self.sheet_name(year))
