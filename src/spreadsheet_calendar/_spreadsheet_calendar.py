@@ -12,7 +12,7 @@ from holidays import HolidayBase, country_holidays, list_supported_countries
 from numbers_parser import Border, Document, xl_range
 from xlsxwriter import Workbook
 
-from numbers_calendar import __version__
+from spreadsheet_calendar import __version__
 
 
 def generate_month_map():

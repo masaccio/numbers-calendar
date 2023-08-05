@@ -5,21 +5,20 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
 ]
-description = "Create Apple Numbers spreadsheet calendars using python"
-documentation = "https://github.com/masaccio/numbers-calendar/blob/main/README.md"
+description = "Create spreadsheet calendars using python"
+documentation = "https://github.com/masaccio/spreadsheet-calendar/blob/main/README.md"
 license = "MIT"
-name = "numbers-calendar"
-packages = [{include = "numbers_calendar", from = "src"}]
+name = "spreadsheet-calendar"
+packages = [{include = "spreadsheet_calendar", from = "src"}]
 readme = "README.md"
-repository = "https://github.com/masaccio/numbers-calendar"
+repository = "https://github.com/masaccio/spreadsheet-calendar"
 version = "1.0.0"
 
 [tool.poetry.scripts]
-numbers-calendar = "numbers_calendar._numbers_calendar:main"
+spreadsheet-calendar = "spreadsheet_calendar._spreadsheet_calendar:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-# numbers-parser = {git = "https://github.com/masaccio/numbers-parser.git"}
 numbers-parser = "^4.3"
 holidays = "^0.29"
 pycountry = "^22.3.5"
@@ -44,7 +43,7 @@ branch = true
 directory = "coverage_html_report"
 
 [tool.pytest.ini_options]
-addopts = "--cov=src/numbers_parser --cov-report=term-missing"
+addopts = "--cov=src/spreadsheet_parser --cov-report=term-missing"
 
 [tool.tox]
 legacy_tox_ini = """
