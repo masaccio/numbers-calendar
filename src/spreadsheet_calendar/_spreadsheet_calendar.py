@@ -321,6 +321,7 @@ class NumbersCalendar(Calendar):
         else:
             self.doc.add_sheet(sheet_name=sheet_name)
         self.first_sheet = False
+        self.doc.sheets[-1].tables[0].table_name_enabled = False
         return self.doc.sheets[-1]
 
     def add_style(self, **kwargs):
