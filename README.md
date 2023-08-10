@@ -12,7 +12,7 @@ python3 -m pip install spreadsheet-calendar
 
 ## Example output
 
-![a spreadsheet calendar](docs/calendar.png?raw=True "Example Calendar")
+![a spreadsheet calendar](https://github.com/masaccio/spreadsheet-calendar/blob/main/docs/calendar.jpg?raw=True "Example Calendar")
 
 ## Usage
 
