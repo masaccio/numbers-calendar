@@ -10,6 +10,10 @@ A command-line utility to generate whole year calendars in Excel and Apple Numbe
 python3 -m pip install spreadsheet-calendar
 ```
 
+## Example output
+
+![a spreadsheet calendar](docs/calendar.png?raw=True "Example Calendar")
+
 ## Usage
 
 By default, `spreadsheet-calendar` creates a calendar for the current year and the current locale. Available national holidays are those supported by [python-holidays](https://pypi.org/project/holidays/). The list of available countres can be listed using `--list-countries`. Within a country, subdivisions such as regions and states can be used. These can be listed using `--country=name --list-regions`. When listing countries and regions, no calendar is generated and `spreadsheet-calendar` exits after printing the `stdout`.
